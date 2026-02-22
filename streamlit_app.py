@@ -262,7 +262,7 @@ with st.sidebar:
         st.markdown(f"**客服微信**: `{MY_WECHAT}`")
 
 # 主界面
-st.markdown("<div class='main-title'>🎓 赛博孔子 Pro</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-title'>🎓 赛博孔子 Pro V3.0</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>全科 AI 辅导 | 拍照解题 | 作文批改 | 难题精讲</div>", unsafe_allow_html=True)
 
 if is_logged_in:
