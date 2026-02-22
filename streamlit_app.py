@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 # ================= 1. 页面基础配置 =================
 st.set_page_config(
-    page_title="赛博孔子 Pro",
+    page_title="赛博孔子 Pro V3.0",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
