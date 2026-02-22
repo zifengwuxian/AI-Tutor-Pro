@@ -84,6 +84,7 @@ def activate_license(license_key):
     record = db[license_key]
     new_device_id = str(uuid.uuid4())
     
+    # 策略：只要卡密存在，允许登录并绑定当前设备（宽松模式，减少售后）
     if record['status'] == 'UNUSED':
         db[license_key]['status'] = 'USED'
         db[license_key]['bind_device'] = new_device_id
@@ -112,19 +113,11 @@ def auto_login_check():
         c_license = cookies.get('user_license')
         
         if c_license and isinstance(c_license, str) and len(c_license) > 10 and c_license.startswith('EDU-'):
-            # 关键修复：验证卡密是否在云端数据库中
-            db, _ = connect_db()
-            if db and c_license in db:
-                # 卡密有效，同步到Session
-                st.session_state['is_vip'] = True
-                st.session_state['user_license'] = c_license
-                return True, c_license
-            else:
-                # 卡密无效或云端连接失败，清除本地Cookie
-                cookie_manager.delete('user_license')
-                st.session_state['is_vip'] = False
-                st.session_state['user_license'] = None
-    except Exception as e:
+            # 简单验证格式，减少云端请求频率
+            st.session_state['is_vip'] = True
+            st.session_state['user_license'] = c_license
+            return True, c_license
+    except Exception:
         pass
         
     return False, None
@@ -132,7 +125,7 @@ def auto_login_check():
 # ================= 6. AI 智能模块 (核心引擎) =================
 
 def ocr_general(image_file, subject):
-    """视觉引擎 - 回滚纯净版"""
+    """视觉引擎 - 纯净版"""
     if not ZHIPU_KEY: return "Error: ZHIPU_KEY 未配置"
     client = ZhipuAI(api_key=ZHIPU_KEY)
     
@@ -140,7 +133,7 @@ def ocr_general(image_file, subject):
     image_file.save(buffered, format="JPEG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    # 💡 修正：移除 LaTeX 强制指令，让 AI 自然识别
+    # 纯净 OCR Prompt
     prompt = f"""
     你是一个精准的 OCR 助手。请识别图片中的【{subject}】内容。
     
@@ -159,7 +152,7 @@ def ocr_general(image_file, subject):
     except: return "图片识别失败"
 
 def ai_tutor_brain(question_text, subject, task_type):
-    """推理引擎 (Prompt Engine) - 升级版 V2.5"""
+    """推理引擎 (Prompt Engine) - V2.5"""
     if not DEEPSEEK_KEY: return "Error: DEEPSEEK_KEY 未配置"
     client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
     
@@ -170,7 +163,7 @@ def ai_tutor_brain(question_text, subject, task_type):
     elif "作文" in task_type or "润色" in task_type: strategy = "请按【评分-纠错-点评-升格范文】的结构输出，提供高级词汇。"
     elif "背诵" in task_type or "口诀" in task_type: strategy = "请提供好记的顺口溜或思维导图，帮助记忆。"
     
-    # 💡 关键修改：增加“实战优先”指令
+    # 实战优先指令
     system_prompt = f"""
     你是一位资深的【{subject}】特级教师。
     当前任务模式：{task_type}
@@ -190,7 +183,7 @@ def ai_tutor_brain(question_text, subject, task_type):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"学生上传的题目内容如下：\n{question_text}\n\n请老师针对以上题目进行讲解。"}
             ],
-            temperature=0.3 # 💡 调低温度，让它更专注解题，少发挥
+            temperature=0.3 
         )
         return res.choices[0].message.content
     except Exception as e: return f"AI思考失败: {str(e)}"
@@ -218,14 +211,11 @@ with st.sidebar:
         st.caption(f"卡号: {current_user}")
         
         if st.button("🚪 安全退出", type="secondary", use_container_width=True):
-            # 先清除Session状态
             st.session_state['is_vip'] = False
             st.session_state['user_license'] = None
-            # 再清除Cookie
             try:
                 cookie_manager.delete('user_license')
-            except:
-                pass
+            except: pass
             st.warning("正在清除安全凭证...")
             time.sleep(0.5)
             st.rerun()
@@ -245,15 +235,30 @@ with st.sidebar:
                     st.error(msg)
     
     st.divider()
-    with st.expander("💎 购买卡密 (9.9元/次)", expanded=False):
-        st.info("扫码支付后，截图加微信领卡密")
-        tab1, tab2 = st.tabs(["微信", "支付宝"])
-        with tab1:
+    
+    # 💎 升级版收银台 (价格锚定)
+    with st.expander("💎 开通会员 (查看价格)", expanded=True):
+        st.markdown("""
+        | 套餐类型 | 价格 | 每日成本 |
+        | :--- | :--- | :--- |
+        | **⚡ 体验卡** (24h) | **¥ 9.9** | ¥ 9.9 |
+        | **📅 尊享月卡** (30天) | **¥ 39.9** | **¥ 1.3** 🔥 |
+        | **🥇 学霸年卡** (365天) | **¥ 199** | **¥ 0.5** 💰 |
+        """)
+        
+        st.info("💡 推荐 **月卡**，一杯奶茶钱，辅导孩子一个月！")
+        
+        pay_method = st.radio("选择支付方式:", ["微信支付", "支付宝"], horizontal=True, label_visibility="collapsed")
+        
+        if pay_method == "微信支付":
             img = load_image("pay_wechat.png")
-            if img: st.image(img)
-        with tab2:
+            if img: st.image(img, caption="请备注：手机号")
+            else: st.error("请上传 pay_wechat.png")
+        else:
             img = load_image("pay_alipay.png")
-            if img: st.image(img)
+            if img: st.image(img, caption="请备注：手机号")
+            else: st.error("请上传 pay_alipay.png")
+            
         st.markdown(f"**客服微信**: `{MY_WECHAT}`")
 
 # 主界面
@@ -297,7 +302,7 @@ if is_logged_in:
                     
                     with c2:
                         with st.expander("查看识别结果 (OCR)", expanded=True):
-                            st.text(ocr_text) # 💡 改回 text 显示，因为现在输出的是纯文本
+                            st.text(ocr_text)
                         
                         st.markdown(f"### 👩‍🏫 {subject}老师讲解")
                         st.markdown(f"<div class='answer-area'>{ai_result}</div>", unsafe_allow_html=True)
