@@ -310,7 +310,7 @@ if is_logged_in:
                         st.markdown(f"### 👩‍🏫 {subject}老师讲解")
                         # 使用原生容器替代 HTML，确保数学公式能被渲染
                         with st.container(border=True):
-                        st.markdown(ai_result)
+                            st.markdown(ai_result)
                 else:
                     st.error("图片识别失败，请确保字迹清晰。")
 else:
