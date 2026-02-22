@@ -159,22 +159,28 @@ def ocr_general(image_file, subject):
     except: return "图片识别失败"
 
 def ai_tutor_brain(question_text, subject, task_type):
-    """推理引擎 (Prompt Engine)"""
+    """推理引擎 (Prompt Engine) - 升级版 V2.5"""
     if not DEEPSEEK_KEY: return "Error: DEEPSEEK_KEY 未配置"
     client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
     
+    # 动态构建策略
     strategy = "请用通俗易懂的语言讲解，重点突出考点。"
     if "分步" in task_type: strategy = "请务必分步骤讲解，逻辑严密，每一步都要说明依据。"
     elif "举一反三" in task_type: strategy = "讲解完原题后，请务必再出 1 道类似的变式题，并给出答案。"
     elif "作文" in task_type or "润色" in task_type: strategy = "请按【评分-纠错-点评-升格范文】的结构输出，提供高级词汇。"
     elif "背诵" in task_type or "口诀" in task_type: strategy = "请提供好记的顺口溜或思维导图，帮助记忆。"
     
+    # 💡 关键修改：增加“实战优先”指令
     system_prompt = f"""
     你是一位资深的【{subject}】特级教师。
-    当前任务：{task_type}
-    教学策略：{strategy}
+    当前任务模式：{task_type}
     
-    请使用 Markdown 格式输出，重点内容加粗。
+    【最高指令】：
+    1. **实战优先**：如果用户提供的是具体题目（如试卷图片内容），请**逐题讲解**！不要空谈理论技巧。
+    2. **针对性**：不要输出通用的“解题模板”，而是直接告诉学生这道题选什么、填什么、为什么。
+    3. **格式**：使用 Markdown，重点加粗。数学公式用 LaTeX。
+    
+    【教学策略参考】：{strategy}
     """
     
     try:
@@ -182,9 +188,9 @@ def ai_tutor_brain(question_text, subject, task_type):
             model="deepseek-chat",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"题目/内容：\n{question_text}\n\n请老师开始讲解。"}
+                {"role": "user", "content": f"学生上传的题目内容如下：\n{question_text}\n\n请老师针对以上题目进行讲解。"}
             ],
-            temperature=0.7
+            temperature=0.3 # 💡 调低温度，让它更专注解题，少发挥
         )
         return res.choices[0].message.content
     except Exception as e: return f"AI思考失败: {str(e)}"
