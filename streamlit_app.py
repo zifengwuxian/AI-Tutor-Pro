@@ -133,23 +133,41 @@ def ocr_general(image_file, subject):
     image_file.save(buffered, format="JPEG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    # 纯净 OCR Prompt
-    prompt = f"""
-    你是一个精准的 OCR 助手。请识别图片中的【{subject}】内容。
-    
-    【要求】：
-    1. 所见即所得：图片里是什么符号，你就输出什么符号（例如 ×, ÷, +, -）。
-    2. 保持排版：每道题占一行。
-    3. 不要加任何解释，只输出题目内容。
-    """
+    # 针对不同科目优化 OCR Prompt
+    if subject == "英语":
+        prompt = f"""
+        你是一个精准的 OCR 助手。请识别图片中的【英语】内容。
+        
+        【要求】：
+        1. 识别所有英文文本，包括单词、句子、段落。
+        2. 保持原文的拼写、大小写、标点符号。
+        3. 如果是作文，请完整识别所有内容。
+        4. 不要加任何解释，只输出识别到的英文内容。
+        5. 如果图片中没有任何英文内容，请输出：NO_TEXT_DETECTED
+        """
+    else:
+        prompt = f"""
+        你是一个精准的 OCR 助手。请识别图片中的【{subject}】内容。
+        
+        【要求】：
+        1. 所见即所得：图片里是什么符号，你就输出什么符号（例如 ×, ÷, +, -）。
+        2. 保持排版：每道题占一行。
+        3. 不要加任何解释，只输出题目内容。
+        """
     
     try:
         res = client.chat.completions.create(
             model="glm-4v",
             messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_base64}}]}]
         )
-        return res.choices[0].message.content
-    except: return "图片识别失败"
+        ocr_result = res.choices[0].message.content.strip()
+        
+        if not ocr_result or ocr_result == "NO_TEXT_DETECTED":
+            return "图片识别失败：未检测到有效内容"
+        
+        return ocr_result
+    except Exception as e: 
+        return f"图片识别失败: {str(e)}"
 
 def ai_tutor_brain(question_text, subject, task_type):
     """推理引擎 (Prompt Engine) - V2.6 数学公式修复版"""
